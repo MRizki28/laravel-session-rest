@@ -15,18 +15,20 @@
         <input type="hidden" name="id" id="id">
         <div class="form-group">
             <label for="nama_barang">Nama Barang:</label>
-            <input type="text" class="form-control" id="nama_barang" name="nama_barang" required>
+            <input type="text" class="form-control" id="nama_barang" name="nama_barang">
         </div>
         <div class="form-group">
             <label for="qty">Qty:</label>
-            <input type="number" class="form-control" id="qty" name="qty" required>
+            <input type="number" class="form-control" id="qty" name="qty">
         </div>
         <div class="form-group">
             <label for="harga_satuan">Harga Satuan:</label>
-            <input type="number" class="form-control" id="harga_satuan" name="harga_satuan" required>
+            <input type="number" class="form-control" id="harga_satuan" name="harga_satuan">
         </div>
 
-        <button type="submit" id="submit-btn" class="btn btn-primary">Submit</button>
+        <div class="modal-footer">
+            <button type="submit" form="formTambah" class="btn btn-outline-primary">Submit Data</button>
+        </div>
     </form>
 
     <table id="data-table" class="table">
@@ -36,6 +38,7 @@
                 <th>Qty</th>
                 <th>Harga Satuan</th>
                 <th>Total Harga</th>
+                <th>Aksi</th>
             </tr>
         </thead>
         <tbody>
@@ -48,7 +51,7 @@
         <input type="text" name="nama_customer" id="nama_customer">
         <button type="submit" id="save-to-database-btn" class="btn btn-success">Save to Database</button>
     </form>
-  
+
 
 
 
@@ -84,6 +87,12 @@
                         '<td>' + item.qty + '</td>' +
                         '<td>' + item.harga_satuan + '</td>' +
                         '<td>' + item.total_harga + '</td>' +
+                        '<td>' +
+                        "<button type='button' class='btn btn-primary edit-modal' ' " +
+                        "data-id='" + item.id + "'>" +
+                        "<button type='button' class='btn btn-danger delete-confirm' data-id='" +
+                        item.id + "'>delete</button>" +
+                        '</td>' +
                         '</tr>';
                     tbody.append(row);
 
@@ -99,34 +108,103 @@
 
             getDataFromServer();
 
-            $('#formTambah').submit(function(e) {
-                e.preventDefault();
-                let formData = new FormData(this);
+            $(document).ready(function() {
+                var isEditMode = false;
 
-                $.ajax({
-                    type: "post",
-                    url: "{{ url('/session') }}",
-                    data: formData,
-                    dataType: "JSON",
-                    contentType: false,
-                    processData: false,
-                    success: function(response) {
-                        if (response.message === 'check your validation') {
-                            console.log(response)
-                            let error = response.errors;
-                            let errorMessage = '';
+                function showForm(editMode = false, id = '') {
+                    isEditMode = editMode;
+                    if (isEditMode) {
+                        $('.modal-footer button[type="submit"] ').text('Update');
+                    } else {
+                        $('.modal-footer button[type="submit"] ').text('Submit');
+                    }
+                    $('#id').val(id);
+                }
 
-                            alert('ada data yang kosong')
-                        } else {
-                            alert('success tambah menu')
-                            window.location.reload();
-                        }
-                    },
-                    error: function(error) {
-                        console.log('Error', error);
+                console.log('isEditMode:', isEditMode);
+
+
+                $('#formTambah').submit(function(e) {
+                    e.preventDefault();
+                    let formData = new FormData(this);
+
+                    if (isEditMode) {
+                        let id = $('#id').val();
+                        $.ajax({
+                            type: "post",
+                            url: "{{ url('/session/update') }}/" + id,
+                            data: formData,
+                            dataType: "JSON",
+                            contentType: false,
+                            processData: false,
+                            success: function(response) {
+                                console.log(response)
+                                if (response.message === 'Check your validation') {
+                                    console.log(response)
+                                    let error = response.errors;
+                                    let errorMessage = '';
+
+                                    alert('ada data yang kosong')
+                                } else {
+                                    alert('success update')
+                                    window.location.reload();
+                                }
+                            },
+                            error: function(error) {
+                                console.log('Error', error);
+                            }
+                        });
+                    } else {
+                        $.ajax({
+                            type: "post",
+                            url: "{{ url('/session') }}",
+                            data: formData,
+                            dataType: "JSON",
+                            contentType: false,
+                            processData: false,
+                            success: function(response) {
+                                console.log(response)
+                                if (response.message === 'Check your validation') {
+                                    let error = response.errors;
+                                    let errorMessage = '';
+
+                                    alert('ada data yang kosong')
+                                } else {
+                                    alert('success tambah menu')
+                                    window.location.reload();
+                                }
+                            },
+                            error: function(error) {
+                                console.log('Error', error);
+                            }
+                        });
                     }
                 });
-            })
+
+                $(document).on('click', '.edit-modal', function() {
+                    const id = $(this).data('id');
+
+                    $.ajax({
+                        url: '{{ url('get/session/') }}' + '/' + id,
+                        type: 'GET',
+                        dataType: 'json',
+                        success: function(response) {
+                            $('#nama_barang').val(response.data.nama_barang);
+                            $('#qty').val(response.data.qty);
+                            $('#harga_satuan').val(response.data.harga_satuan);
+                            $('#total_harga').val(response.data.total_harga);
+                            $('#id').val(response.data.id);
+
+                            showForm(true, response.data.id);
+                        },
+                        error: function(xhr, textStatus, errorThrown) {
+                            console.log(xhr);
+                            alert("Terjadi kesalahan: " + textStatus);
+                        }
+                    });
+                });
+            });
+
 
 
             $('#customerForm').submit(function(e) {
@@ -157,6 +235,38 @@
                     }
                 });
             })
+
+            $(document).ready(function() {
+                function deleteData(id) {
+                    $.ajax({
+                        type: "DELETE",
+                        url: "{{ url('/session/delete') }}/" + id,
+                        data: {
+                            "_token": "{{ csrf_token() }}",
+                            "id": id
+                        },
+                        dataType: "json",
+                        success: function(response) {
+                            alert(response.message);
+                            window.location.reload();
+                        },
+                        error: function(error) {
+                            console.log('Error', error);
+                            alert('Terjadi kesalahan saat menghapus data');
+                        }
+                    });
+                }
+
+                $(document).on('click', '.delete-confirm', function() {
+                    const id = $(this).data('id');
+                    const confirmDelete = confirm('Apakah Anda yakin ingin menghapus data ini?');
+
+                    if (confirmDelete) {
+                        deleteData(id);
+                    }
+                });
+            });
+
         });
     </script>
 

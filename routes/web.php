@@ -16,10 +16,16 @@ use App\Http\Controllers\BarangController;
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/table', function () {
+    return view('table');
+});
 
 Route::get('/get/session' , [BarangController::class, 'getDataFromSession']);
 Route::post('/session' , [BarangController::class, 'createData']);
+Route::get('/get/session/{id}' , [BarangController::class, 'getDataById']);
+Route::post('/session/update/{id}' , [BarangController::class, 'updateDataById']);
 Route::post('/session/save' , [BarangController::class, 'createDataCustomerAndBarang']);
+Route::delete('/session/delete/{id}' , [BarangController::class, 'deleteData']);
 
 
 
