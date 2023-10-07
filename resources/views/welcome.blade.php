@@ -48,7 +48,13 @@
 
     <form action="" id="customerForm">
         @csrf
+        <input type="hidden" name="id" id="id">
         <input type="text" name="nama_customer" id="nama_customer">
+        <input type="text" name="total_pembayaran" id="total_pembayaran">
+        <input type="text" name="jumlah_bayar" id="jumlah_bayar" placeholder="jumlah bayar">
+        <input type="text" name="kembalian" id="kembalian" disabled placeholder="kembalian">
+        <input type="text" name="diskon" id="diskon" placeholder="diskon">
+        <input type="hidden" name="sisa_pelunasan" id="sisa_pelunasan" placeholder="sisa pelunasan">
         <button type="submit" id="save-to-database-btn" class="btn btn-success">Save to Database</button>
     </form>
 
@@ -59,14 +65,23 @@
 
     <script>
         $(document).ready(function() {
+            let totalHarga;
+
+            getDataFromServer();
+
             function getDataFromServer() {
                 $.ajax({
                     url: '{{ url('get/session') }}',
                     type: 'GET',
                     dataType: 'json',
                     success: function(response) {
-                        console.log(response)
+                        console.log(response);
                         renderDataInTable(response.data);
+
+                        totalHarga = calculateTotalHarga(response.data);
+                        $('#total_pembayaran').val(totalHarga);
+
+                        calculatePayment();
                     },
                     error: function(xhr, textStatus, errorThrown) {
                         console.log(xhr);
@@ -74,6 +89,37 @@
                     }
                 });
             }
+
+            function calculateTotalPembayaran() {
+                let diskon = parseFloat($('#diskon').val());
+
+                if (!isNaN(diskon)) {
+                    let totalPembayaran = totalHarga - (totalHarga * (diskon / 100));
+                    $('#total_pembayaran').val(totalPembayaran.toFixed(0));
+                } else {
+                    $('#total_pembayaran').val(totalHarga.toFixed(0));
+                }
+
+                console.log('totalHarga:', totalHarga);
+                console.log('diskon:', diskon);
+
+                calculatePayment();
+            }
+
+            $('#diskon').on('input', calculateTotalPembayaran);
+
+            function calculatePayment() {
+                let totalPembayaran = parseFloat($('#total_pembayaran').val());
+                let jumlahBayar = parseFloat($('#jumlah_bayar').val());
+
+                if (!isNaN(totalPembayaran) && !isNaN(jumlahBayar)) {
+                    let kembalian = jumlahBayar - totalPembayaran;
+                    $('#kembalian').val(kembalian.toFixed(2));
+                } else {
+                    $('#kembalian').val('');
+                }
+            }
+            $('#jumlah_bayar').on('input', calculatePayment);
 
             function renderDataInTable(data) {
                 let tbody = $('#data-table tbody');
@@ -105,6 +151,18 @@
                     '</tr>';
                 tbody.append(totalRow);
             }
+
+            function calculateTotalHarga(data) {
+                let totalHarga = 0;
+                $.each(data, function(index, item) {
+                    totalHarga += parseInt(item.total_harga);
+                });
+
+                localStorage.setItem('totalHarga', totalHarga);
+
+                return totalHarga;
+            }
+
 
             getDataFromServer();
 
@@ -210,6 +268,10 @@
             $('#customerForm').submit(function(e) {
                 e.preventDefault();
                 let formData = new FormData(this);
+                let totalHarga = $('#total_pembayaran').val();
+                console.log(totalHarga)
+
+                formData.append('total_harga', totalHarga);
 
                 $.ajax({
                     type: "post",
@@ -219,6 +281,7 @@
                     contentType: false,
                     processData: false,
                     success: function(response) {
+                        console.log(response)
                         if (response.message === 'check your validation') {
                             console.log(response)
                             let error = response.errors;
@@ -226,15 +289,19 @@
 
                             alert('ada data yang kosong')
                         } else {
+                            localStorage.removeItem('totalHarga');
+
                             alert('success tambah menu')
                             window.location.reload();
+                            $('#sisa_pelunasan').val(response.sisa_pelunasan);
                         }
                     },
                     error: function(error) {
                         console.log('Error', error);
                     }
                 });
-            })
+            });
+
 
             $(document).ready(function() {
                 function deleteData(id) {
